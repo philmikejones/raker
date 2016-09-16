@@ -116,6 +116,15 @@ weight <- function(cons, inds, vars = NULL, iterations = 10) {
   # one ind table based on unique levels in inds is easier to check and use
   ind_cat <- do.call(cbind, inds)
 
+  stopifnot(all.equal(colnames(cons), colnames(ind_cat)))
+
+  # give ind_cat sequential column names to ensure they're entered into the
+  # model in the correct order
+  colnames(ind_cat) <- paste0(seq_along(colnames(ind_cat)),
+                              "_",
+                              colnames(ind_cat))
+  colnames(cons) <- colnames(ind_cat)
+
   # check colnames match exactly at this point
   # this is crucial to ensure the simulation doesn't provide incorrect results
   if (!isTRUE(all.equal(colnames(ind_cat), colnames(cons)))) {
@@ -140,24 +149,19 @@ weight <- function(cons, inds, vars = NULL, iterations = 10) {
   # The sum of weights will form the simulated population so this must match
   # the population from cons
   if (!isTRUE(all.equal(sum(weights), (sum(cons) / length(vars))))) {
-    stop("Column names don't match.\n
-         Are the first columns in cons and inds a zone code/unique ID?
-         Check the unique levels in inds and colnames in cons match EXACTLY.
-         Unique levels identified by weight():\n\n",
-         vapply(seq_along(colnames(ind_cat)), function(x)
-           paste0(colnames(ind_cat)[x], " "), "")
-    )
+    stop("Weight populations don't match constraint populations.
+          Usually this means the populations for each of your constraints
+          are slightly different\n",
+         "Sum of simulated population:  ", sum(weights), "\n",
+         "Sum of constraint population: ", (sum(cons) / length(vars)))
   }
 
   # The colSums of weights will form the simulated population in each zone so
   # these should match the actual populations in each zone from cons
-  if (!isTRUE(all.equal(colSums(weights), (rowSums(cons) / length(vars))))) {
-    stop("Zone populations (cons) do not match simulated populations.\n
-         Are the first columns in cons and inds a zone code/unique ID?
-         Check the unique levels in inds and colnames in cons match EXACTLY.
-         Unique levels identified by weight():\n\n",
-         vapply(seq_along(colnames(ind_cat)), function(x)
-           paste0(colnames(ind_cat)[x], " "), "")
+  if (!isTRUE(colSums(weights) - (rowSums(cons) / length(vars))) < 1L) {
+    stop("Simulated weights by zone differ from constraint weights by zone\n",
+         "Sum of the differences between zones (should be <1): ",
+         sum(colSums(weights) - (rowSums(cons) / length(vars)))
     )
   }
 
@@ -166,7 +170,7 @@ weight <- function(cons, inds, vars = NULL, iterations = 10) {
   colnames(weights) <- zones
   weights <- as.data.frame(weights)
 
-  weights
+weights
 
 }
 
